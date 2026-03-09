@@ -1,0 +1,4 @@
+[workspace]
+resolver = "2"
+
+members = ["packages/turso_ex/native/turso_nif"]
