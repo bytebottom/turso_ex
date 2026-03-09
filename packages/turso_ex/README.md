@@ -29,6 +29,11 @@ Planned public shape:
 - `TursoEx.execute/3`
 - `TursoEx.one/3`
 
+Current status:
+
+- the public entrypoints exist as explicit stubs
+- Phase 2 implementation is still in progress
+
 Installation:
 
 ```elixir

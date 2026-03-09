@@ -59,6 +59,12 @@ Rules:
 
 - Upstream compatibility matrix: https://github.com/tursodatabase/turso/blob/main/COMPAT.md
 - Local crate version in this repo: `turso = 0.5.1-pre.1`
+- Official SDK docs:
+  - https://docs.turso.tech/sdk/introduction
+  - https://docs.turso.tech/sdk/ts/reference
+  - https://docs.turso.tech/sdk/rust/reference
+  - https://docs.turso.tech/sdk/go/reference
+  - https://docs.turso.tech/sdk/python/reference
 
 ## Rule Of Thumb
 
@@ -99,6 +105,118 @@ Examples:
 - transactions
 - sync database builder and sync operations
 
+## Official SDK Pattern
+
+Across the official Turso bindings, the stable mental model is close to:
+
+- one open or create entry point
+- one connection or database capability value
+- local, in-memory, remote, and embedded replica modes
+- SQL execution with result metadata
+- explicit sync support
+- transaction helpers
+- batch and prepared-statement support
+
+This should influence our roadmap.
+
+It should not force us to copy another language binding mechanically.
+
+Practical rule:
+
+- preserve the clean Elixir happy path
+- map the important capabilities over time
+- prefer Elixir-shaped names and structs when the capability is the same
+
+## Official Capability Areas We Should Map
+
+These capability areas show up repeatedly across official bindings and should be visible in our roadmap.
+
+### Open and connect modes
+
+- local file
+- in-memory
+- remote database
+- embedded replica
+
+Likely public option directions:
+
+- `:path`
+- `:url`
+- `:sync_url`
+- `:auth_token`
+- `:encryption_key`
+
+Notes:
+
+- `:path`, `:url`, `:sync_url`, `:auth_token`, and encryption-related options map cleanly to the local crate direction.
+- `:read_your_writes` and `:sync_interval` may still be worth considering as future Elixir conveniences, but they are not visible in the local `turso` crate API today and should not be described as direct parity.
+
+### Query and execute
+
+- positional params
+- named params
+- rows
+- columns
+- rows affected
+- last insert row id
+
+### Sync
+
+- `push`
+- `pull`
+- `checkpoint`
+- replica metadata and stats
+
+Practical rule:
+
+- if we add a public `TursoEx.sync/1`, document it as an Elixir convenience over sync operations, not as direct crate parity.
+
+### Transactions
+
+- transaction helper
+- transaction mode or behavior
+- honest savepoint story only after verification
+
+### Statement and batch support
+
+- `execute_batch`
+- `prepare`
+- `prepare_cached`
+- `query_row`
+- statement metadata
+
+### Builder-level feature flags
+
+These are not just SQL probes. They are builder-path capabilities in the local crate.
+
+- experimental attach
+- experimental triggers
+- experimental materialized views
+- strict tables, currently always enabled upstream
+
+Practical rule:
+
+- document these as builder-level support decisions, not as generic SQL compatibility items
+- do not spend Phase 6 probe effort on strict-table enablement in the current crate version, it is already always on
+
+## SQL-First Features
+
+Some capabilities are important, but should stay SQL-first in `turso_ex`.
+
+Examples:
+
+- vector search
+- full-text search
+- JSON functions
+- most PRAGMA usage
+- extension-backed SQL features
+
+Practical rule:
+
+- support these through `query/execute`
+- document them with examples
+- do not invent bespoke `search` or `vector_search` wrapper APIs unless the SQL path proves inadequate
+
 ## Public Data Contracts
 
 ### `%TursoEx.Conn{}`
@@ -106,11 +224,13 @@ Examples:
 - opaque connection capability
 - the main thing users pass around
 - should remain stable even if local and remote modes are added later
+- retains both database and connection handles internally
 
 ### `%TursoEx.Result{}`
 
 - positional row container
-- `columns`, `rows`, `num_rows`
+- `columns`, `rows`, `num_rows` in Phase 2
+- roadmap pressure toward `rows_affected` and `last_insert_rowid` as the support surface grows
 - rows are lists, not maps, in the base API
 
 ### `%TursoEx.Error{}`
@@ -121,6 +241,7 @@ Examples:
 Recommended initial `kind` values:
 
 - `:invalid_argument`
+- `:constraint`
 - `:sql_error`
 - `:busy`
 - `:misuse`
@@ -130,17 +251,21 @@ Recommended initial `kind` values:
 
 To keep Phase 2 clean:
 
+- `open/1` accepts either a bare path string or `path: ...`
 - `open/1` returns a ready-to-use connection capability
 - positional params are the public default
 - named params are not part of the initial public contract
 - result rows are positional
 - text and blob values both appear as Elixir binaries
+- `one/3` returns `{:ok, nil}` for zero rows
+- `one/3` returns a scalar only for exactly one row and one column
+- `one/3` returns an error for multiple rows or multiple columns
 
 ## Upstream Constraints To Document Honestly
 
 From upstream compatibility docs and local crate behavior:
 
-- no concurrent access from multiple processes
+- concurrent sharing is possible, but concurrent writes may return busy errors
 - `VACUUM` unsupported
 - rollback-journal modes are not the target, WAL is the intended mode
 - SQLite FTS3/FTS4/FTS5 unsupported, use Turso FTS instead
@@ -243,15 +368,34 @@ Public facade plus local open / execute / query, all in `packages/turso_ex`.
 
 ### Phase 3
 
-Local utility and statement parity, and introduce `TursoEx.Driver` only if that work actually needs a middle layer. `packages/ecto_turso_ex/` can remain scaffolded, but the adapter should still wait until the core package shape is stable enough to build on.
+Local utility and statement parity, plus capability expansion toward the official SDK surface:
+
+- named params
+- result metadata helpers
+- `execute_batch`
+- `prepare`
+- `prepare_cached`
+- `query_row`
+
+Introduce `TursoEx.Driver` only if that work actually needs a middle layer. `packages/ecto_turso_ex/` can remain scaffolded, but the adapter should still wait until the core package shape is stable enough to build on.
 
 ### Phase 4
 
-Transactions.
+Transactions, including behavior or mode support if the upstream API shape justifies it.
 
 ### Phase 5
 
-Remote and sync.
+Remote and replica parity:
+
+- remote open path
+- embedded replica options
+- push, pull, checkpoint, stats
+- auth, URL, bootstrap, long poll, encryption, and partial-sync options
+- builder-level experimental feature flags where justified
+
+Note:
+
+- `read_your_writes` and periodic sync remain possible future Elixir-level conveniences, but should not currently be documented as local crate parity.
 
 ### Phase 6
 

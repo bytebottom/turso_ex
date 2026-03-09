@@ -18,7 +18,7 @@ Elixir
 ## Resource Model
 
 ```text
-db_open/3
+db_open/1
   -> ResourceArc<DbResource>
 
 db_connect/1
@@ -28,6 +28,15 @@ db_connect/1
 `DbResource` wraps `turso::Database`.
 
 `ConnResource` wraps `turso::Connection`.
+
+The public `%TursoEx.Conn{}` keeps both handles alive internally:
+
+```text
+open/1
+  -> db_open/1
+  -> db_connect/1
+  -> %TursoEx.Conn{db: ..., conn: ...}
+```
 
 No global registry, no extra connection mutex layer.
 
@@ -39,9 +48,9 @@ conn_query/3
   -> conn.query(sql, params)
   -> rows.column_names()
   -> rows.next().await loop
+  -> fully consume iterator inside block_on
   -> OwnedValue / QueryResult
-  -> encode map:
-       %{columns: [...], rows: [[...]], num_rows: n}
+  -> encode {:ok, %{columns: [...], rows: [[...]], num_rows: n}}
 ```
 
 ## Execute Path
@@ -70,4 +79,5 @@ row/value conversion failure
 
 - Do not create Elixir `Term`s inside async row iteration.
 - Do not keep env-bound data alive across `.await`.
+- Do not return a lazy or streaming rows handle to Elixir in Phase 2.
 - Boolean input is allowed as `0/1` convenience only. Reads come back as integers.
