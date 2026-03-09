@@ -6,16 +6,21 @@ This package is the core library in the mono-repo. It should stay focused on the
 
 ## Why this exists
 
-The motivating idea is simple: for LiveView and other BEAM applications, low-latency local data access is part of the user experience.
+Data latency is UI latency.
 
-LiveView runs stateful server processes that receive events and push diffs back to the browser. Turso's local-first model is built around local SQLite files and embedded replicas with zero-network-latency reads. Put those together and you get a very interesting target shape for Elixir:
+For LiveView applications, that is not a slogan. It is the whole game.
 
-- local storage next to the application node
-- fast reads in the UI loop
+Deploying application nodes close to users was always fairly straightforward. Getting the data path close to users as well was the hard part. That gap matters a lot for LiveView, because user events are handled on the server and often need fresh data before the next diff can be rendered.
+
+Turso's local-first model is built around local SQLite files and embedded replicas with zero-network-latency reads. Put those pieces together and you get a much more attractive shape for Elixir:
+
+- application nodes near users
+- data reads near those application nodes too
+- faster interactions in the LiveView event loop
 - a path to sync with a remote primary later
 - one clean Elixir API instead of dropping straight into a foreign SDK
 
-This package is building the Elixir-native version of that idea.
+This package is the Elixir-native version of that idea.
 
 Planned public shape:
 

@@ -1,84 +1,74 @@
-# TursoEx Mono-Repo
+# Turso for Elixir
 
-TursoEx exists because the combination of Turso and LiveView is unusually compelling.
+> The way to make programs fast is not to optimize the programs but to give the programs less to do.<br />
+> _— Joe Armstrong, *Coders at Work* (2009)_
 
-Phoenix LiveView keeps UI state on the server, handles events in a LiveView process, and pushes diffs back to the browser over a persistent connection. That model is excellent, but it makes request-to-database latency matter a lot. If every click turns into a server event and a database round trip, the database is part of the UI loop.
+LiveView keeps UI state on the server. Every event hits a process, reads some data, and pushes a diff back to the browser. That loop is fast when the database is close. It gets slow when every read crosses an ocean.
 
-Turso is interesting here because its local-first story is built around SQLite files, embedded replicas, zero-network-latency local reads, and sync back to a remote primary. For BEAM applications, especially LiveView apps, that opens up a very attractive shape: keep storage physically close to the application process, optimize for local latency, and keep a cloud-connected path when you need it.
+BEAM nodes are easy to deploy near users. The data has always been the hard part. TursoEx fixes that.
 
-That is the bet behind this repo.
+## How
 
-Phase 2 is only the local foundation, not the whole end-state. The point is to build the clean Elixir API and native boundary first, so local-only usage is solid before remote sync and fuller Turso parity arrive.
+[Turso](https://turso.tech) gives you a local SQLite file that serves reads with zero network latency and syncs back to a remote primary on your schedule. TursoEx puts that engine inside your BEAM node via Rust NIFs, so your LiveView process can read from a file on the same machine instead of round-tripping to a database across the wire.
 
-Why this is exciting for Elixir and LiveView:
+`handle_event` -> local read -> render diff. The whole loop in microseconds.
 
-- LiveView processes receive events and render diffs from the server, so lower database latency directly improves the feel of interactive screens.
-- Turso's embedded-replica model gives you a local SQLite file with zero-network-latency reads and explicit sync semantics.
-- BEAM apps already like keeping state and coordination close to the process that owns the work. A local database file on the same node fits that instinct well.
-- This should be especially interesting for LiveView-heavy apps where the fastest path is often "handle event, read local state, render diff".
+## The API
 
-Relevant sources:
+TursoEx is an Elixir-first library. The public surface is designed around what you'd want to write, not what the Rust SDK happens to expose.
 
-- Phoenix LiveView overview: <https://hexdocs.pm/phoenix/live_view.html>
-- Phoenix LiveView latency notes: <https://hexdocs.pm/phoenix_live_view/1.1.1/js-interop.html>
-- Turso local-first overview: <https://turso.tech/local-first>
-- Turso embedded replicas: <https://docs.turso.tech/features/embedded-replicas>
+```elixir
+{:ok, conn} = TursoEx.open(path: "/tmp/my.db")
 
-This repository is intended to stay as a mono-repo without becoming an umbrella:
+{:ok, _} = TursoEx.execute(conn, "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)")
+{:ok, _} = TursoEx.execute(conn, "INSERT INTO users (name) VALUES (?1)", ["Ada"])
 
-- the core `turso_ex` package lives in `packages/turso_ex`
-- the `ecto_turso_ex` adapter package lives in `packages/ecto_turso_ex`
-- the Rust NIF crate lives in `packages/turso_ex/native/turso_nif`
-
-That keeps development in one place without letting Ecto concerns leak into the core package too early.
-
-## Repository Map
-
-```text
-.
-├── AGENTS.md
-├── PLAN.md
-├── README.md
-├── docs/
-│   ├── README.md
-│   ├── architecture/
-│   └── reference/
-├── packages/
-│   ├── ecto_turso_ex/
-│   └── turso_ex/
-│       └── native/turso_nif/
-└── Cargo.toml
+{:ok, result} = TursoEx.query(conn, "SELECT * FROM users")
+# %TursoEx.Result{columns: ["id", "name"], rows: [[1, "Ada"]]}
 ```
 
-What lives where:
+The public API stays small on purpose: `open`, `query`, `execute`, `one`. Ecto support lives in a separate adapter package that depends on the core, not the other way around.
 
-- `packages/turso_ex/`
-  Core `turso_ex` package.
-- `packages/ecto_turso_ex/`
-  Separate Mix project for the future Ecto adapter.
-- `packages/turso_ex/native/turso_nif/`
-  Rust NIF crate owned by the core package.
-- `Cargo.toml`
-  Rust workspace manifest for the NIF crate.
-- `packages/*/mix.exs`
-  Elixir package manifests for the workspace packages.
-- `docs/architecture/`
-  Diagrams and flow docs.
-- `docs/reference/`
-  Support contracts and compatibility notes.
-- `PLAN.md`
-  Working implementation plan, not general reference documentation.
+## Why Turso over plain SQLite
 
-Package-specific docs live in:
+Turso is a ground-up Rust rewrite of the SQLite engine with features that matter for production Elixir apps:
 
-- [packages/turso_ex/README.md](packages/turso_ex/README.md)
-- [packages/ecto_turso_ex/README.md](packages/ecto_turso_ex/README.md)
+- **Embedded replicas** with explicit sync semantics
+- **Vector search** built into the engine
+- **Full-text search** powered by Tantivy (not the SQLite FTS extension)
+- **Multi-tenancy** via per-database branching and schema sharing
 
-## Working In The Repo
+All of it runs locally, in-process.
 
-Run package commands from the package you are changing:
+## Project status
 
-- core package:
-  `cd packages/turso_ex && mix test`
-- adapter package:
-  `cd packages/ecto_turso_ex && mix test`
+Early. The NIF boundary compiles and the scaffold is in place, but real queries are not wired up yet. Phase 2 (local reads and writes through the full Elixir API) is the current focus.
+
+## Repository layout
+
+Mono-repo with two packages and one Rust crate:
+
+```
+packages/turso_ex/              Core library (no Ecto dependency)
+packages/turso_ex/native/       Rust NIF crate (turso + rustler)
+packages/ecto_turso_ex/         Ecto adapter (depends on turso_ex)
+docs/                           Architecture diagrams, reference docs
+```
+
+Work happens inside the package you're changing:
+
+```sh
+cd packages/turso_ex && mix test       # core
+cd packages/ecto_turso_ex && mix test  # adapter
+```
+
+## Acknowledgements
+
+TursoEx would not exist without [ecto_libsql](https://github.com/ocean/ecto_libsql) by Drew Robinson. Its Rust NIF architecture, parameter encoding, and row decoding patterns were the blueprint for this project. If you need libSQL in Elixir today, start there.
+
+## Links
+
+- [Turso](https://turso.tech)
+- [Embedded replicas](https://docs.turso.tech/features/embedded-replicas)
+- [Phoenix LiveView](https://hexdocs.pm/phoenix_live_view)
+- [ecto_libsql](https://github.com/ocean/ecto_libsql)
