@@ -97,7 +97,7 @@ Repository doc layout:
 
 - put diagrams and flow docs in `docs/architecture/`
 - put contracts, compatibility notes, and support surfaces in `docs/reference/`
-- keep `PLAN.md` at the repo root as a working plan, not long-term reference
+- keep the working plan set in `plans/`, not in a root `PLAN.md`
 - do not dump every markdown file into `docs/` root without a reason
 
 ## Testing Rules

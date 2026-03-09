@@ -57,7 +57,7 @@ The project is moving in six visible steps:
 - Phase 5, add remote and sync support in the shape Turso users already expect
 - Phase 6, keep compatibility claims honest with targeted probes and support docs
 
-The full plan set lives in [PLAN.md](PLAN.md) and [plans/06-future-roadmap.md](plans/06-future-roadmap.md).
+The full plan set lives in [plans/README.md](plans/README.md) and [plans/06-future-roadmap.md](plans/06-future-roadmap.md).
 
 ### Official Turso Capabilities We Intend To Map
 

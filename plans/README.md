@@ -1,22 +1,22 @@
-# Plan Index
+# Plans
 
-This repo now uses a plan set instead of one giant plan file.
+This repository uses a plan set instead of one giant plan file.
 
 The point is simple: each plan should describe one stage of work clearly enough that it is obvious what to do next, what is blocked, and what "done" means.
 
 ## Execution Order
 
-1. [plans/01-contract.md](plans/01-contract.md)
+1. [01-contract.md](01-contract.md)
    The product bar, package boundaries, public contract, and Phase 2 scope.
-2. [plans/02-native-nif-layer.md](plans/02-native-nif-layer.md)
+2. [02-native-nif-layer.md](02-native-nif-layer.md)
    Rust resources, decoding, row collection, and NIF implementation work.
-3. [plans/03-elixir-facade.md](plans/03-elixir-facade.md)
+3. [03-elixir-facade.md](03-elixir-facade.md)
    `TursoEx.Native`, the public facade, and public structs.
-4. [plans/04-tests-and-verification.md](plans/04-tests-and-verification.md)
+4. [04-tests-and-verification.md](04-tests-and-verification.md)
    Parallel test work and final verification.
-5. [plans/05-docs-and-support-surface.md](plans/05-docs-and-support-surface.md)
+5. [05-docs-and-support-surface.md](05-docs-and-support-surface.md)
    Documentation work that should happen after the code and tests prove the behavior.
-6. [plans/06-future-roadmap.md](plans/06-future-roadmap.md)
+6. [06-future-roadmap.md](06-future-roadmap.md)
    Later phases for SDK parity, transactions, sync, and compatibility probes.
 
 ## Order Rules
