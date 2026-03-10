@@ -51,15 +51,19 @@ NIF query return shape:
 
 ## Decode Note
 
-`decode_term_to_value/1` should use this decode order:
+`decode_term_to_value/1` uses this decode order:
 
 - `nil`
+- `bool -> 0/1` (must precede integer, since true/false are atoms that Rustler can decode as i64)
 - `i64`
 - `f64`
-- `bool -> 0/1`
-- `String`
-- `{:blob, binary}`
-- raw `Binary`
+- `{:blob, binary}` (must precede String, so tagged blobs are not swallowed as text)
+- `String` (UTF-8 binary)
+
+Untagged non-UTF-8 binaries are rejected with `BadArg`. This is intentional:
+Elixir strings and raw bytes are both binaries at the BEAM level, so there is
+no way to distinguish text from blob without an explicit tag. Silently guessing
+based on UTF-8 validity would store data under the wrong type.
 
 ## Action Items
 
