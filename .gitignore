@@ -27,6 +27,9 @@ erl_crash.dump
 turso_ex-*.tar
 
 
+# Scratch plan file for active execution
+PLAN.md
+
 # Rust binary artifacts
 /target/
 

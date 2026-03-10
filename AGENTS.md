@@ -9,6 +9,60 @@ These rules are here to protect the end-state shape of the library:
 - honest documentation
 - no Ecto-driven contamination of the core package
 
+## Working Style
+
+This project uses a deliberate AI collaboration model.
+
+How to work with me on this project:
+
+- lead with understanding, not code. When I ask for a feature, start with the domain and constraints before writing implementation.
+- ask sharp questions when edge cases or domain semantics are unclear in a high-impact way. Do not silently choose domain behavior that should be my decision.
+- push back if a proposed design complects separate concerns. Name what is being tangled.
+- build small. Give me a foundational piece I can validate in IEx before building the rest.
+- prefer a small module plus example calls over a large speculative patch.
+- when we are in novel domain logic (not boilerplate), prompt me to make the key decisions. Explain trade-offs and alternatives you considered.
+- do not introduce unfamiliar patterns without explaining them first, unless they are already established in the repo.
+
+## When To Ask vs Decide
+
+- ask when the choice affects public API, domain semantics, failure semantics, or package boundaries
+- decide when the choice is low-risk, internal, and reversible
+- when deciding, note the assumption briefly and keep the change easy to revise
+
+## Interpretation Rules
+
+Use this file as a decision aid, not a bag of vibes.
+
+When multiple instructions seem to overlap, resolve them in this order:
+
+1. existing code and tests, unless they are clearly scaffolding or stale relative to the active contract
+2. the active contract document in `plans/` (currently `plans/01-contract.md`)
+3. hard package and API boundary rules in this file
+4. documentation and roadmap files
+5. style and taste guidance
+
+Specific rules:
+
+- if code, tests, and docs disagree, trust code and tests first, then fix the docs
+- if the active contract doc and a later roadmap file disagree, treat the active contract as the source of truth
+- if a decision affects the public API, package boundaries, or failure semantics, do not improvise silently
+- if a decision is low-risk and reversible, choose the simpler path and note it
+- do not invent a third behavior when two docs disagree, pick the source of truth and align the other file
+
+## Decision Order
+
+When making trade-offs in this project, prefer this order:
+
+1. correctness and truthfulness
+2. stable public API
+3. clean package boundaries
+4. simple Elixir data and functions
+5. observability and debuggability
+6. SDK parity
+7. convenience sugar
+
+If a choice improves parity but makes the Elixir API worse, parity loses.
+
 ## Product Bar
 
 Build `turso_ex` as an Elixir library first, and a NIF wrapper second.
@@ -75,6 +129,7 @@ Specific rules:
 
 - `open/1` returns a ready-to-use connection capability
 - `%TursoEx.Conn{}` should stay opaque and boring
+- `%TursoEx.Conn{}` retains both database and connection handles internally so sync support does not force a public struct change
 - `%TursoEx.Result{}` should use positional rows in the base API
 - `%TursoEx.Error{}` should stay machine-meaningful and pleasant in `iex`
 - avoid adding convenience APIs unless they clearly earn their keep
@@ -97,7 +152,7 @@ Repository doc layout:
 
 - put diagrams and flow docs in `docs/architecture/`
 - put contracts, compatibility notes, and support surfaces in `docs/reference/`
-- keep the working plan set in `plans/`, not in a root `PLAN.md`
+- keep the working plan set in `plans/`
 - do not dump every markdown file into `docs/` root without a reason
 
 ## Testing Rules
@@ -123,7 +178,7 @@ Rules:
 - schedule every NIF with `#[rustler::nif(schedule = "DirtyIo")]` so the BEAM scheduler stays responsive
 - never hold a `rustler::Env` or build `rustler::Term` values across a `.await` point; collect Rust-owned data first, encode to terms once after the async work completes
 - use `ResourceArc<T>` for opaque handles (`Database`, `Connection`); do not serialize handles to strings or IDs
-- prefix NIF error atoms/strings with the operation name so Elixir callers can pattern-match (`"open: ..."`, `"query: ..."`)
+- prefix NIF error strings with the operation name so Elixir callers can pattern-match (`"db_open: ..."`, `"conn_query: ..."`)
 - do not allocate unbounded memory inside a NIF; cap row buffers or stream results if a query could return arbitrarily many rows
 - wrap the turso async API with `RUNTIME.block_on(...)` inside DirtyIo NIFs; do not spawn detached Tokio tasks that outlive the NIF call
 - if a Rust dependency introduces `unsafe`, audit it before merging
@@ -137,6 +192,6 @@ These are warning signs:
 - introducing `Driver` before real parity work proves the need
 - documenting features before the code path works
 - broadening the public API to mirror the Rust crate mechanically
-- hiding ambiguity behind “smart” behavior instead of making the contract explicit
+- hiding ambiguity behind "smart" behavior instead of making the contract explicit
 
 If a proposed change hits one of these, slow down and justify it clearly before proceeding.
